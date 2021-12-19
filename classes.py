@@ -5,9 +5,9 @@ import pygame
 
 from functions import get_player_pool_position, check_available_for_domino, get_domino_backside, is_available_moves, \
     get_storage
-from parameters import DOMINO_CELL_SIZE, DOMINO_BACK_COLOR, PLAYERS_COLORS, SCREEN_HEIGHT, \
+from parameters import DOMINO_CELL_SIZE, PLAYERS_COLORS, SCREEN_HEIGHT, \
     SCREEN_WIGHT, DOMINO_INTERVAL, PLAYER1, PLAYER1_WIN, PLAYER2_WIN, BORDER_COLOR, STORAGE_COORDS, TRANSPARENT_COLOR, \
-    DOMINO_COLOR, DOMINO_DOT_COLOR, RESULT_BACKGROUND_COLOR
+    DOMINO_COLOR, DOMINO_DOT_COLOR, THIRD_COLOR
 
 ChainElement = namedtuple('ChainElement', ['rect', 'domino', 'label'])
 
@@ -170,6 +170,8 @@ class Chain:
         self.chain_elements = []
         self.left_line, self.right_line = None, None
         self.left_side, self.right_side = None, None
+        self.left_size, self.right_size = 0, 0
+        self.left_wight, self.right_wight = 630, 600
 
     def add_first_domino(self, domino):
         if domino.is_double:
@@ -195,59 +197,88 @@ class Chain:
             self.add_first_domino(domino)
             return
 
-        # Проверка возможности добавления домино в правую часть цепочки
-        if domino.side1 != self.right_side and domino.side2 != self.right_side:
-            raise Exception('Некорректное добавление справа')
+        if self.right_size + 2 * DOMINO_CELL_SIZE < self.right_wight:
+            if domino.is_double:
+                domino.rotate(Domino.UP_ORIENTATION)
+            else:
+                if domino.side1 == self.right_side:
+                    domino.rotate(Domino.RIGHT_ORIENTATION)
+                    self.right_side = domino.side2
+                elif domino.side2 == self.right_side:
+                    domino.rotate(Domino.LEFT_ORIENTATION)
+                    self.right_side = domino.side1
 
-        # Ориентируем домино
-        if domino.is_double:
-            domino.rotate(Domino.UP_ORIENTATION)
+            domino_rect = domino.rect
+            domino_rect = pygame.Rect(
+                self.right_line + 2,
+                domino_rect.y,
+                domino_rect.width,
+                domino_rect.height
+            )
+            self.right_line = domino_rect.right
         else:
-            if domino.side1 == self.right_side:
-                domino.rotate(Domino.RIGHT_ORIENTATION)
-                self.right_side = domino.side2
-            elif domino.side2 == self.right_side:
-                domino.rotate(Domino.LEFT_ORIENTATION)
-                self.right_side = domino.side1
+            if not domino.is_double:
+                if domino.side1 == self.right_side:
+                    domino.rotate(Domino.LEFT_ORIENTATION)
+                    self.right_side = domino.side2
+                elif domino.side2 == self.right_side:
+                    domino.rotate(Domino.RIGHT_ORIENTATION)
+                    self.right_side = domino.side1
 
-        domino_rect = domino.rect
-        domino_rect = pygame.Rect(
-            self.right_line + 2,
-            domino_rect.y,
-            domino_rect.width,
-            domino_rect.height
-        )
+            domino_rect = domino.rect
+            domino_rect = pygame.Rect(
+                self.right_line - 2 - domino_rect.width,
+                domino_rect.y - 420,
+                domino_rect.width,
+                domino_rect.height
+            )
+            self.right_line = domino_rect.left
         self.chain_elements.append(ChainElement(domino_rect, domino, label))
-        self.right_line = domino_rect.right
+        self.right_size += domino_rect.width
 
     def add_to_left(self, domino, label):
         if not self.chain_elements:
             self.add_first_domino(domino)
             return
 
-        # Проверка возможности добавления домино в левую часть цепочки
-        if domino.side1 != self.left_side and domino.side2 != self.left_side:
-            raise Exception('Некорректное добавление слева')
+        if self.left_size + 2 * DOMINO_CELL_SIZE < self.left_wight:
+            if domino.is_double:
+                domino.rotate(Domino.UP_ORIENTATION)
+            else:
+                if domino.side1 == self.left_side:
+                    domino.rotate(Domino.LEFT_ORIENTATION)
+                    self.left_side = domino.side2
+                elif domino.side2 == self.left_side:
+                    domino.rotate(Domino.RIGHT_ORIENTATION)
+                    self.left_side = domino.side1
 
-        if domino.is_double:
-            domino.rotate(Domino.UP_ORIENTATION)
+            domino_rect = domino.rect
+            domino_rect = pygame.Rect(
+                self.left_line - 2 - domino_rect.width,
+                domino_rect.y,
+                domino_rect.width,
+                domino_rect.height
+            )
+            self.left_line = domino_rect.left
         else:
-            if domino.side1 == self.left_side:
-                domino.rotate(Domino.LEFT_ORIENTATION)
-                self.left_side = domino.side2
-            elif domino.side2 == self.left_side:
-                domino.rotate(Domino.RIGHT_ORIENTATION)
-                self.left_side = domino.side1
+            if not domino.is_double:
+                if domino.side1 == self.left_side:
+                    domino.rotate(Domino.RIGHT_ORIENTATION)
+                    self.left_side = domino.side2
+                elif domino.side2 == self.left_side:
+                    domino.rotate(Domino.LEFT_ORIENTATION)
+                    self.left_side = domino.side1
 
-        domino_rect = domino.rect
-        domino_rect = pygame.Rect(
-            self.left_line - 2 - domino_rect.width,
-            domino_rect.y,
-            domino_rect.width,
-            domino_rect.height
-        )
+            domino_rect = domino.rect
+            domino_rect = pygame.Rect(
+                self.left_line + 2,
+                domino_rect.y - 420,
+                domino_rect.width,
+                domino_rect.height
+            )
+            self.left_line = domino_rect.right
         self.chain_elements.insert(0, ChainElement(domino_rect, domino, label))
-        self.left_line = domino_rect.left
+        self.left_size += domino_rect.width
 
     def create_surface(self):
         self.surface.fill(TRANSPARENT_COLOR)
@@ -297,7 +328,7 @@ class Storage:
         random.shuffle(self.domino_list)
         self.surface = pygame.Surface((SCREEN_WIGHT, SCREEN_HEIGHT))
         self.surface.set_colorkey(TRANSPARENT_COLOR)
-        self.font = pygame.font.Font(None, 36)
+        self.font = pygame.font.Font(None, 80)
         self.last_chain_left, self.last_chain_right = None, None
 
     def create_surface(self):
@@ -312,7 +343,7 @@ class Storage:
         font_rect = font_surface.get_rect()
 
         self.surface.blit(font_surface,
-                          (SCREEN_WIGHT // 2 - font_rect.width // 2, SCREEN_HEIGHT // 2 - font_rect.height // 2))
+                          (SCREEN_WIGHT // 2 - font_rect.width, SCREEN_HEIGHT // 2 - 0.75 * font_rect.height))
 
     @property
     def storage_size(self):
@@ -329,7 +360,7 @@ class Storage:
         if not self.storage_size or not is_available_moves(self.player_pool):
             return False
 
-        domino_rect = pygame.Rect(STORAGE_COORDS[0], STORAGE_COORDS[1], 2 * DOMINO_CELL_SIZE, DOMINO_CELL_SIZE)
+        domino_rect = pygame.Rect(STORAGE_COORDS[0], STORAGE_COORDS[1], 4 * DOMINO_CELL_SIZE, 2 * DOMINO_CELL_SIZE)
         if domino_rect.collidepoint(pos[0], pos[1]):
             domino = self.domino_list.pop()
             self.player_pool.add_domino(domino)
@@ -353,7 +384,7 @@ class RestartGameButton:
         self.surface.fill(TRANSPARENT_COLOR)
 
         button_surface = pygame.Surface((5 * DOMINO_CELL_SIZE, DOMINO_CELL_SIZE))
-        button_surface.fill(DOMINO_BACK_COLOR)
+        button_surface.fill(THIRD_COLOR)
         pygame.draw.rect(button_surface, BORDER_COLOR, (0, 0, 5 * DOMINO_CELL_SIZE, DOMINO_CELL_SIZE), 1)
         self.surface.blit(button_surface, (DOMINO_CELL_SIZE, SCREEN_HEIGHT - 75))
 
@@ -536,7 +567,7 @@ class ResultPane:
             msg = 'Ничья'
 
         x1, y1 = SCREEN_WIGHT // 2 - DOMINO_CELL_SIZE * 6, SCREEN_HEIGHT // 2 - DOMINO_CELL_SIZE * 2
-        pygame.draw.rect(self.surface, RESULT_BACKGROUND_COLOR, (x1, y1, DOMINO_CELL_SIZE * 12, DOMINO_CELL_SIZE * 4))
+        pygame.draw.rect(self.surface, THIRD_COLOR, (x1, y1, DOMINO_CELL_SIZE * 12, DOMINO_CELL_SIZE * 4))
 
         font_result = pygame.font.Font(None, 36)
         font_resume = pygame.font.Font(None, 24)

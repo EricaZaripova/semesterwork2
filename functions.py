@@ -1,7 +1,7 @@
 import pygame
 
-from parameters import BACKGROUND_COLOR, SCREEN_WIGHT, SCREEN_HEIGHT, DOMINO_CELL_SIZE, DOMINO_BACK_COLOR, BORDER_COLOR, \
-    PLAYER1_WIN, PLAYER2_WIN, STANDOFF
+from parameters import BACKGROUND_COLOR, SCREEN_WIGHT, SCREEN_HEIGHT, DOMINO_CELL_SIZE, BORDER_COLOR, \
+    PLAYER1_WIN, PLAYER2_WIN, STANDOFF, THIRD_COLOR
 
 
 def get_player_pool_position(player_pool):
@@ -10,16 +10,16 @@ def get_player_pool_position(player_pool):
 
 def get_domino_backside():
     surface = pygame.Surface((DOMINO_CELL_SIZE, 2 * DOMINO_CELL_SIZE))
-    surface.fill(DOMINO_BACK_COLOR)
+    surface.fill(THIRD_COLOR)
     pygame.draw.rect(surface, BORDER_COLOR, (0, 0, DOMINO_CELL_SIZE, 2 * DOMINO_CELL_SIZE), 1)
 
     return surface
 
 
 def get_storage():
-    surface = pygame.Surface((2 * DOMINO_CELL_SIZE, DOMINO_CELL_SIZE))
-    surface.fill(DOMINO_BACK_COLOR)
-    pygame.draw.rect(surface, BORDER_COLOR, (0, 0, 2 * DOMINO_CELL_SIZE, DOMINO_CELL_SIZE), 1)
+    surface = pygame.Surface((4 * DOMINO_CELL_SIZE, 2 * DOMINO_CELL_SIZE))
+    surface.fill(THIRD_COLOR)
+    pygame.draw.rect(surface, BORDER_COLOR, (0, 0, 4 * DOMINO_CELL_SIZE, 2 * DOMINO_CELL_SIZE), 1)
 
     return surface
 
