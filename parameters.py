@@ -23,12 +23,10 @@ PLAYERS_COLORS = {
     PLAYER2: (250, 187, 136)
 }
 
-# Режимы игры
-PLAYER1_MOVE = 1       # Ход игрока
-PLAYER2_MOVE = 2       # Ход компьютера
-END_GAME = 3           # Игра окончена
+PLAYER1_MOVE = 1
+PLAYER2_MOVE = 2
+END_GAME = 3
 
-# Окончания игры
-PLAYER1_WIN = 1             # Игрок победил
-PLAYER2_WIN = 2             # Компьютер победил
-STANDOFF = 3                # Ничья
+PLAYER1_WIN = 1
+PLAYER2_WIN = 2
+STANDOFF = 3

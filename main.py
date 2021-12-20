@@ -1,33 +1,40 @@
 import pygame
 import sys
 
-from classes import Chain, Player1Pool, Storage, ResultPane, Player2Pool, RestartGameButton
+from classes import Chain, PlayerPool, Storage, ResultPane, RestartGameButton, Network
 from functions import draw_background, is_quit_event, is_available_moves, check_end_game, draw_chain, draw_storage_pane, \
     draw_player1_pool, draw_game_result, draw_player2_pool, draw_restart_button
 from parameters import SCREEN_WIGHT, SCREEN_HEIGHT, WINDOW_TITLE, PLAYER1_MOVE, END_GAME
 
 
-def main():
-    pygame.init()
-    screen = pygame.display.set_mode((SCREEN_WIGHT, SCREEN_HEIGHT))
-    pygame.display.set_caption(WINDOW_TITLE)
-    surface = pygame.Surface(screen.get_size()).convert()
+pygame.init()
+screen = pygame.display.set_mode((SCREEN_WIGHT, SCREEN_HEIGHT))
+pygame.display.set_caption(WINDOW_TITLE)
 
+
+def main():
+    surface = pygame.Surface(screen.get_size()).convert()
     clock = pygame.time.Clock()
 
+    n = Network()
+    player = int(n.get_p())
+    print("You are player", player)
+    run = True
+
     while True:
+        try:
+            game = n.send("get")
+        except:
+            run = False
+            print("Couldn't get game")
+            break
 
         chain = Chain()
-        player1_pool = Player1Pool(chain)
-        player2_pool = Player2Pool(chain)
-        storage = Storage(player1_pool, chain)
+
+        player1_pool = PlayerPool(chain, 0)
+        player2_pool = PlayerPool(chain, 1)
+        storage = Storage(chain)
         button = RestartGameButton()
-
-        for _ in range(7):
-            player1_pool.add_domino(storage.take_domino())
-
-        for _ in range(7):
-            player2_pool.add_domino(storage.take_domino())
 
         chain.add_first_domino(storage.take_domino())
 
@@ -54,7 +61,6 @@ def main():
                         resume_game = False
                         break
 
-                    # Если игрок совершил действие (взял домино и/или положил его в цепочку), то передаем ход ИИ
                     if player_pool_action or (storage_action and not is_available_moves(player1_pool)):
                         game_result = check_end_game(player1_pool, player2_pool, storage)
                         if game_result:
@@ -81,7 +87,7 @@ def main():
             draw_game_result(surface, result_pane)
             pygame.display.update()
 
-            clock.tick(25)
+            clock.tick(60)
 
             game_mode = next_mode
 
