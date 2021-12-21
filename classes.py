@@ -5,10 +5,9 @@ from collections import namedtuple
 
 import pygame
 
-from functions import get_player_pool_position, check_available_for_domino, get_domino_backside, is_available_moves, \
-    get_storage
+from functions import get_player_pool_position, check_available_for_domino, is_available_moves, get_storage
 from parameters import DOMINO_CELL_SIZE, PLAYERS_COLORS, SCREEN_HEIGHT, \
-    SCREEN_WIGHT, DOMINO_INTERVAL, PLAYER1, PLAYER1_WIN, PLAYER2_WIN, BORDER_COLOR, STORAGE_COORDS, TRANSPARENT_COLOR, \
+    SCREEN_WIGHT, DOMINO_INTERVAL, PLAYER1_WIN, PLAYER2_WIN, BORDER_COLOR, STORAGE_COORDS, TRANSPARENT_COLOR, \
     DOMINO_COLOR, DOMINO_DOT_COLOR, THIRD_COLOR
 
 ChainElement = namedtuple('ChainElement', ['rect', 'domino', 'label'])
@@ -17,7 +16,7 @@ ChainElement = namedtuple('ChainElement', ['rect', 'domino', 'label'])
 class Network:
     def __init__(self):
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server = "10.11.250.207"
+        self.server = "192.168.0.107"
         self.port = 5555
         self.addr = (self.server, self.port)
         self.p = self.connect()
@@ -35,21 +34,21 @@ class Network:
     def send(self, data):
         try:
             self.client.send(str.encode(data))
-            return pickle.loads(self.client.recv(4096))
+            return pickle.loads(self.client.recv(2048))
         except socket.error as e:
             print(e)
 
 
 class Game:
-    def __init__(self, player1, player2, id, chain, storage):
-        self.p1 = player1
-        self.p2 = player2
+    def __init__(self, player1, player2, id, chain, storage, result_pane):
+        self.players = (player1, player2)
         self.turn = 0
         self.id = id
         self.chain = chain
         self.storage = storage
         self.p1connect = False
         self.p2connect = False
+        self.result_pane = result_pane
 
     def both_in_game(self):
         return self.p1connect and self.p2connect
@@ -355,7 +354,6 @@ class Storage:
         random.shuffle(self.domino_list)
         self.surface = pygame.Surface((SCREEN_WIGHT, SCREEN_HEIGHT))
         self.surface.set_colorkey(TRANSPARENT_COLOR)
-        self.font = pygame.font.Font(None, 80)
         self.last_chain_left, self.last_chain_right = None, None
 
     def create_surface(self):
@@ -366,7 +364,8 @@ class Storage:
         backside_surface = get_storage()
         self.surface.blit(backside_surface, STORAGE_COORDS)
 
-        font_surface = self.font.render(str(self.storage_size), True, BORDER_COLOR)
+        font = pygame.font.Font(None, 42)
+        font_surface = font.render(str(self.storage_size), True, BORDER_COLOR)
         font_rect = font_surface.get_rect()
 
         self.surface.blit(font_surface,
@@ -438,6 +437,7 @@ class PlayerPool:
         self.pool = []
         self.chain = chain
         self.number = number
+        self.color = PLAYERS_COLORS[number]
         self.surface = pygame.Surface((self.PANE_WIDTH, self.PANE_HEIGHT))
         self.surface.set_colorkey(TRANSPARENT_COLOR)
 
@@ -510,61 +510,18 @@ class PlayerPool:
             right_arrow_rect = pool_element['append_to_right_rect']
             domino = pool_element['domino']
 
-            # Обрабатываем добавление домино в левую часть цепочки
             if left_arrow_rect and left_arrow_rect.collidepoint(click_x, click_y):
-                self.chain.add_to_left(domino, PLAYER1)
+                self.chain.add_to_left(domino, self.color)
                 break
 
-            # Обрабатываем добавление домино в правую часть цепочки
             if right_arrow_rect and right_arrow_rect.collidepoint(click_x, click_y):
-                self.chain.add_to_right(domino, PLAYER1)
+                self.chain.add_to_right(domino, self.color)
                 break
         else:
             return False
 
         self.pool.remove(pool_element)
         return True
-
-
-# class Player2Pool:
-#     PANE_WIDTH = SCREEN_WIGHT
-#     PANE_HEIGHT = 3 * DOMINO_CELL_SIZE
-#
-#     def __init__(self, chain):
-#         self.pool = []
-#         self.chain = chain
-#         self.surface = pygame.Surface((self.PANE_WIDTH, self.PANE_HEIGHT))
-#         self.surface.set_colorkey(TRANSPARENT_COLOR)
-#
-#     def create_surface(self):
-#         self.surface.fill(TRANSPARENT_COLOR)
-#
-#         if not self.pool:
-#             return
-#
-#         domino_block_width = DOMINO_INTERVAL * self.pool_size
-#         block_x0, block_y0 = self.PANE_WIDTH // 2 - domino_block_width // 2, DOMINO_CELL_SIZE
-#         domino_backside = get_domino_backside()
-#         for index in range(self.pool_size):
-#             self.surface.blit(domino_backside, (block_x0 + index * DOMINO_INTERVAL, block_y0))
-#
-#     def add_domino(self, domino):
-#         self.pool.append(domino)
-#
-#     def remove_domino(self, domino):
-#         self.pool.remove(domino)
-#
-#     @property
-#     def pool_size(self):
-#         return len(self.pool)
-#
-#     @property
-#     def is_empty(self):
-#         return len(self.pool) == 0
-#
-#     @property
-#     def domino_list(self):
-#         return self.pool
 
 
 class ResultPane:
@@ -594,17 +551,10 @@ class ResultPane:
         pygame.draw.rect(self.surface, THIRD_COLOR, (x1, y1, DOMINO_CELL_SIZE * 12, DOMINO_CELL_SIZE * 4))
 
         font_result = pygame.font.Font(None, 36)
-        font_resume = pygame.font.Font(None, 24)
         result_surface = font_result.render(msg, True, BORDER_COLOR)
-        resume_surface = font_resume.render('[Enter] - Играть еще раз. [ESC] - Выход...', True, BORDER_COLOR)
 
         result_rect = result_surface.get_rect()
         self.surface.blit(
             result_surface,
-            (SCREEN_WIGHT // 2 - result_rect.width // 2, SCREEN_HEIGHT // 2 - result_rect.height - 2)
-        )
-        resume_rect = resume_surface.get_rect()
-        self.surface.blit(
-            resume_surface,
-            (SCREEN_WIGHT // 2 - resume_rect.width // 2, SCREEN_HEIGHT // 2 + result_rect.height)
+            (SCREEN_WIGHT // 2 - result_rect.width // 2, SCREEN_HEIGHT // 2 - result_rect.height // 2)
         )

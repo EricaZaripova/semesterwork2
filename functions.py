@@ -1,7 +1,7 @@
 import pygame
 
 from parameters import BACKGROUND_COLOR, SCREEN_WIGHT, SCREEN_HEIGHT, DOMINO_CELL_SIZE, BORDER_COLOR, \
-    PLAYER1_WIN, PLAYER2_WIN, STANDOFF, THIRD_COLOR
+    PLAYER1_WIN, PLAYER2_WIN, STANDOFF, THIRD_COLOR, TRANSPARENT_COLOR, DOMINO_INTERVAL
 
 
 def get_player_pool_position(player_pool):
@@ -56,6 +56,15 @@ def draw_background(surface):
     pygame.draw.rect(surface, BACKGROUND_COLOR[1], (0, 630, SCREEN_WIGHT, SCREEN_HEIGHT))
 
 
+def draw_waiting_pane(surface):
+    x1, y1 = SCREEN_WIGHT // 2 - DOMINO_CELL_SIZE * 6, SCREEN_HEIGHT // 2 - DOMINO_CELL_SIZE * 2
+    pygame.draw.rect(surface, THIRD_COLOR, (x1, y1, DOMINO_CELL_SIZE * 12, DOMINO_CELL_SIZE * 4))
+
+    font_result = pygame.font.Font(None, 42)
+    text = font_result.render('Waiting for Opponent...', True, BORDER_COLOR)
+    surface.blit(text, (SCREEN_WIGHT / 2 - text.get_width() / 2, SCREEN_HEIGHT / 2 - text.get_height() / 2))
+
+
 def draw_chain(surface, chain):
     chain.create_surface()
     surface.blit(chain.surface, (0, 0))
@@ -71,16 +80,25 @@ def draw_restart_button(surface, button):
     surface.blit(button.surface, (0, 0))
 
 
-def draw_player1_pool(surface, player1_pool):
+def draw_player_pool(surface, player1_pool):
     player1_pool.create_surface()
     x, y = get_player_pool_position(player1_pool)
     surface.blit(player1_pool.surface, (x, y))
 
 
-def draw_player2_pool(surface, player2_pool):
-    player2_pool.create_surface()
-    x, y = get_player_pool_position(player2_pool)
-    surface.blit(player2_pool.surface, (x, y))
+def draw_opponent_pool(surface, opponent_pool):
+    PANE_WIDTH = SCREEN_WIGHT
+    PANE_HEIGHT = 3 * DOMINO_CELL_SIZE
+
+    surface_pool = pygame.Surface((PANE_WIDTH, PANE_HEIGHT))
+    surface_pool.set_colorkey(TRANSPARENT_COLOR)
+    surface_pool.fill(TRANSPARENT_COLOR)
+    domino_block_width = DOMINO_INTERVAL * opponent_pool
+    block_x0, block_y0 = PANE_WIDTH // 2 - domino_block_width // 2, DOMINO_CELL_SIZE
+    domino_backside = get_domino_backside()
+    for index in range(opponent_pool):
+        surface_pool.blit(domino_backside, (block_x0 + index * DOMINO_INTERVAL, block_y0))
+    surface.blit(surface_pool, (0, 0))
 
 
 def draw_game_result(surface, game_result):

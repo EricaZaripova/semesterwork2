@@ -1,9 +1,9 @@
 import socket
 from _thread import *
 import pickle
-from classes import Game, Chain, Storage, PlayerPool
+from classes import Game, Chain, Storage, PlayerPool, ResultPane
 
-server = ""
+server = "192.168.0.107"
 port = 5555
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -36,13 +36,20 @@ def threaded_client(conn, p, game_id):
                     break
                 else:
                     if data == "restart":
-                        pass
-                    elif data == "storage":
-                        pass
-                    elif data != "get":
-                        pass
+                        game.chain = Chain()
+                        game.storage = Storage(chain)
+                        game.result_pane = ResultPane()
+                        game.turn = 0
+                        game.players[0].chain = chain
+                        game.players[0].pool = []
+                        game.players[1].chain = chain
+                        game.players[1].pool = []
+                        for _ in range(7):
+                            player1.add_domino(storage.take_domino())
+                        for _ in range(7):
+                            player2.add_domino(storage.take_domino())
 
-                    conn.sendall(pickle.dumps(game))
+                    conn.sendall(pickle.dumps('1'))
             else:
                 break
         except:
@@ -68,13 +75,14 @@ while True:
     if id_count % 2 == 1:
         chain = Chain()
         storage = Storage(chain)
+        result_pane = ResultPane()
         player1 = PlayerPool(chain, 0)
         player2 = PlayerPool(chain, 1)
         for _ in range(7):
             player1.add_domino(storage.take_domino())
         for _ in range(7):
             player2.add_domino(storage.take_domino())
-        games[game_id] = Game(player1, player2, game_id, chain, storage)
+        games[game_id] = Game(player1, player2, game_id, chain, storage, result_pane)
         games[game_id].p1connect = True
         print("Creating a new game...")
     else:

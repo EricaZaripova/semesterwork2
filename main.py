@@ -1,10 +1,10 @@
 import pygame
 import sys
 
-from classes import Chain, PlayerPool, Storage, ResultPane, RestartGameButton, Network
+from classes import RestartGameButton, Network
 from functions import draw_background, is_quit_event, is_available_moves, check_end_game, draw_chain, draw_storage_pane, \
-    draw_player1_pool, draw_game_result, draw_player2_pool, draw_restart_button
-from parameters import SCREEN_WIGHT, SCREEN_HEIGHT, WINDOW_TITLE, PLAYER1_MOVE, END_GAME
+    draw_game_result, draw_restart_button, draw_player_pool, draw_opponent_pool, draw_waiting_pane
+from parameters import SCREEN_WIGHT, SCREEN_HEIGHT, WINDOW_TITLE
 
 
 pygame.init()
@@ -17,79 +17,84 @@ def main():
     clock = pygame.time.Clock()
 
     n = Network()
-    player = int(n.get_p())
-    print("You are player", player)
+    p_num = int(n.get_p())
+    print("You are player", p_num)
     run = True
 
-    while True:
+    while run:
         try:
             game = n.send("get")
-        except:
+        except Exception as e:
             run = False
             print("Couldn't get game")
+            print(e)
             break
 
-        chain = Chain()
+        if not (game.both_in_game()):
+            draw_background(surface)
+            draw_waiting_pane(surface)
 
-        player1_pool = PlayerPool(chain, 0)
-        player2_pool = PlayerPool(chain, 1)
-        storage = Storage(chain)
-        button = RestartGameButton()
-
-        chain.add_first_domino(storage.take_domino())
-
-        result_pane = ResultPane()
-        next_mode = game_mode = PLAYER1_MOVE
-        resume_game = True
-
-        while resume_game:
             events = pygame.event.get()
             if is_quit_event(events):
+                run = False
                 pygame.quit()
                 exit()
+        else:
+            button = RestartGameButton()
+            chain = game.chain
+            storage = game.storage
+            result_pane = game.result_pane
+            player_pool = game.players[p_num]
 
-            if game_mode == PLAYER1_MOVE:
-                storage_action = player_pool_action = restart_action = False
-                for event in events:
-                    if event.type == pygame.MOUSEBUTTONDOWN:
-                        if event.button == pygame.BUTTON_LEFT:
-                            storage_action = storage.click(event.pos)
-                            player_pool_action = player1_pool.click(event.pos)
-                            restart_action = button.click(event.pos)
+            if game.turn == p_num:
+                player_turn = True
 
-                    if restart_action:
-                        resume_game = False
-                        break
+                if not chain.chain_elements:
+                    chain.add_first_domino(storage.take_domino())
 
-                    if player_pool_action or (storage_action and not is_available_moves(player1_pool)):
-                        game_result = check_end_game(player1_pool, player2_pool, storage)
-                        if game_result:
-                            result_pane.set_game_result(game_result)
-                            next_mode = END_GAME
+                while player_turn:
+                    events = pygame.event.get()
+                    if is_quit_event(events):
+                        run = False
+                        pygame.quit()
+                        exit()
 
-            if game_mode == END_GAME:
-                for event in events:
-                    if event.type == pygame.KEYDOWN:
-                        if event.key == pygame.K_ESCAPE:
-                            pygame.quit()
-                            exit()
-                        if event.key == pygame.K_KP_ENTER or event.key == 13:
-                            resume_game = False
+                    storage_action = player_pool_action = restart_action = False
+                    for event in events:
+                        if event.type == pygame.MOUSEBUTTONDOWN:
+                            if event.button == pygame.BUTTON_LEFT:
+                                storage_action = storage.click(event.pos)
+                                player_pool_action = player_pool.click(event.pos)
+                                restart_action = button.click(event.pos)
+
+                        if player_pool_action:
+                            player_turn = False
+                            game.turn = (p_num-1)*(-1)
+
+                        if restart_action:
+                            game = n.send("restart")
                             break
 
-            screen.blit(surface, (0, 0))
-            draw_background(surface)
-            draw_storage_pane(surface, storage)
-            draw_chain(surface, chain)
-            draw_player1_pool(surface, player1_pool)
-            draw_player2_pool(surface, player2_pool)
-            draw_restart_button(surface, button)
-            draw_game_result(surface, result_pane)
-            pygame.display.update()
+                        if player_pool_action or (storage_action and not is_available_moves(player_pool)):
+                            game_result = check_end_game(player_pool, game.players[(p_num-1)*(-1)], storage)
+                            if game_result != p_num and game_result != 2:
+                                game_result = (-1) * (game_result - 1)
+                            if game_result:
+                                result_pane.set_game_result(game_result)
+                                pygame.time.delay(2000)
+                                game = n.send("restart")
 
-            clock.tick(60)
+                screen.blit(surface, (0, 0))
+                draw_background(surface)
+                draw_storage_pane(surface, storage)
+                draw_chain(surface, chain)
+                draw_player_pool(surface, player_pool)
+                draw_opponent_pool(surface, len(game.players[(p_num-1)*(-1)].pool))
+                draw_restart_button(surface, button)
+                draw_game_result(surface, result_pane)
+                pygame.display.update()
 
-            game_mode = next_mode
+                clock.tick(60)
 
 
 if __name__ == '__main__':
