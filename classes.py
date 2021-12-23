@@ -1,4 +1,5 @@
 import socket
+from multiprocessing.connection import Client
 import pickle
 import random
 from collections import namedtuple
@@ -7,48 +8,43 @@ import pygame
 
 from functions import get_player_pool_position, check_available_for_domino, is_available_moves, get_storage
 from parameters import DOMINO_CELL_SIZE, PLAYERS_COLORS, SCREEN_HEIGHT, \
-    SCREEN_WIGHT, DOMINO_INTERVAL, PLAYER1_WIN, PLAYER2_WIN, BORDER_COLOR, STORAGE_COORDS, TRANSPARENT_COLOR, \
-    DOMINO_COLOR, DOMINO_DOT_COLOR, THIRD_COLOR
+    SCREEN_WIGHT, DOMINO_INTERVAL, BORDER_COLOR, STORAGE_COORDS, TRANSPARENT_COLOR, \
+    DOMINO_COLOR, DOMINO_DOT_COLOR, THIRD_COLOR, WIN, STANDOFF
 
 ChainElement = namedtuple('ChainElement', ['rect', 'domino', 'label'])
 
 
 class Network:
     def __init__(self):
-        self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server = "192.168.0.107"
         self.port = 5555
+        self.client = Client((self.server, self.port))
         self.addr = (self.server, self.port)
-        self.p = self.connect()
+        self.p = self.client.recv()
 
     def get_p(self):
         return self.p
 
-    def connect(self):
-        try:
-            self.client.connect(self.addr)
-            return self.client.recv(2048).decode()
-        except:
-            pass
-
     def send(self, data):
         try:
-            self.client.send(str.encode(data))
-            return pickle.loads(self.client.recv(2048))
+            self.client.send(data)
+            return self.client.recv()
         except socket.error as e:
             print(e)
 
 
 class Game:
-    def __init__(self, player1, player2, id, chain, storage, result_pane):
-        self.players = (player1, player2)
+    def __init__(self, id):
         self.turn = 0
         self.id = id
-        self.chain = chain
-        self.storage = storage
+        self.last = [None, None, None]
         self.p1connect = False
         self.p2connect = False
-        self.result_pane = result_pane
+        self.p1_available_moves = True
+        self.p2_available_moves = True
+        self.p1_pool = 0
+        self.p2_pool = 0
+
 
     def both_in_game(self):
         return self.p1connect and self.p2connect
@@ -316,7 +312,7 @@ class Chain:
             if label:
                 pygame.draw.line(
                     self.surface,
-                    PLAYERS_COLORS[label],
+                    label,
                     (rect.x + SCREEN_WIGHT // 2 - 10, SCREEN_HEIGHT // 3 - rect.y // 2 + rect.height + 5),
                     (rect.x + SCREEN_WIGHT // 2 + rect.width - 20, SCREEN_HEIGHT // 3 - rect.y // 2 + rect.height + 5),
                     3
@@ -348,28 +344,9 @@ class Chain:
 
 
 class Storage:
-    def __init__(self, chain):
-        self.chain = chain
+    def __init__(self):
         self.domino_list = [Domino(side1, side2) for side1 in range(7) for side2 in range(side1, 7)]
         random.shuffle(self.domino_list)
-        self.surface = pygame.Surface((SCREEN_WIGHT, SCREEN_HEIGHT))
-        self.surface.set_colorkey(TRANSPARENT_COLOR)
-        self.last_chain_left, self.last_chain_right = None, None
-
-    def create_surface(self):
-        self.surface.fill(TRANSPARENT_COLOR)
-        if not self.storage_size:
-            return
-
-        backside_surface = get_storage()
-        self.surface.blit(backside_surface, STORAGE_COORDS)
-
-        font = pygame.font.Font(None, 42)
-        font_surface = font.render(str(self.storage_size), True, BORDER_COLOR)
-        font_rect = font_surface.get_rect()
-
-        self.surface.blit(font_surface,
-                          (SCREEN_WIGHT // 2 - font_rect.width, SCREEN_HEIGHT // 2 - 0.75 * font_rect.height))
 
     @property
     def storage_size(self):
@@ -381,22 +358,6 @@ class Storage:
 
     def take_domino(self):
         return self.domino_list.pop()
-
-    def click(self, player_pool, pos):
-        if not self.storage_size or not is_available_moves(player_pool):
-            return False
-
-        domino_rect = pygame.Rect(STORAGE_COORDS[0], STORAGE_COORDS[1], 4 * DOMINO_CELL_SIZE, 2 * DOMINO_CELL_SIZE)
-        if domino_rect.collidepoint(pos[0], pos[1]):
-            domino = self.domino_list.pop()
-            player_pool.add_domino(domino)
-            self.last_chain_left, self.last_chain_right = self.chain.left_side, self.chain.right_side
-            return True
-
-        return False
-
-    def get_last_chain_sides(self):
-        return self.last_chain_left, self.last_chain_right
 
 
 class RestartGameButton:
@@ -433,15 +394,15 @@ class PlayerPool:
     TO_RIGHT_BUTTON_COORDS = ((1, 1), (3, 2), (1, 3))
     ARROW_COLOR = (255, 255, 255)
 
-    def __init__(self, chain, number):
+    def __init__(self, number, chain):
         self.pool = []
-        self.chain = chain
         self.number = number
+        self.chain = chain
         self.color = PLAYERS_COLORS[number]
         self.surface = pygame.Surface((self.PANE_WIDTH, self.PANE_HEIGHT))
         self.surface.set_colorkey(TRANSPARENT_COLOR)
 
-    def create_surface(self):
+    def create_surface(self, chain, turn):
         self.surface.fill(TRANSPARENT_COLOR)
 
         if not self.pool:
@@ -455,24 +416,25 @@ class PlayerPool:
             pool_element['rect'] = domino_rect
             self.surface.blit(domino.surface, domino_rect)
 
-            available_for_left, available_for_right = check_available_for_domino(domino, self.chain)
+            if self.number == turn:
+                available_for_left, available_for_right = check_available_for_domino(domino, chain)
 
-            delta_x = delta_y = DOMINO_CELL_SIZE // 8
-            if available_for_left:
-                x0, y0 = domino_rect.x, domino.rect.y - DOMINO_CELL_SIZE // 2
-                arrow_coords = [(x0 + delta_x * x, y0 + delta_y * y) for x, y in self.TO_LEFT_BUTTON_COORDS]
-                pygame.draw.polygon(self.surface, self.ARROW_COLOR, arrow_coords)
-                pool_element['append_to_left_rect'] = pygame.Rect(x0, y0, DOMINO_CELL_SIZE // 2, DOMINO_CELL_SIZE // 2)
-            else:
-                pool_element['append_to_left_rect'] = None
+                delta_x = delta_y = DOMINO_CELL_SIZE // 8
+                if available_for_left:
+                    x0, y0 = domino_rect.x, domino.rect.y - DOMINO_CELL_SIZE // 2
+                    arrow_coords = [(x0 + delta_x * x, y0 + delta_y * y) for x, y in self.TO_LEFT_BUTTON_COORDS]
+                    pygame.draw.polygon(self.surface, self.ARROW_COLOR, arrow_coords)
+                    pool_element['append_to_left_rect'] = pygame.Rect(x0, y0, DOMINO_CELL_SIZE // 2, DOMINO_CELL_SIZE // 2)
+                else:
+                    pool_element['append_to_left_rect'] = None
 
-            if available_for_right:
-                x0, y0 = domino_rect.x + DOMINO_CELL_SIZE // 2, domino.rect.y - DOMINO_CELL_SIZE // 2
-                arrow_coords = [(x0 + delta_x * x, y0 + delta_y * y) for x, y in self.TO_RIGHT_BUTTON_COORDS]
-                pygame.draw.polygon(self.surface, self.ARROW_COLOR, arrow_coords)
-                pool_element['append_to_right_rect'] = pygame.Rect(x0, y0, DOMINO_CELL_SIZE // 2, DOMINO_CELL_SIZE // 2)
-            else:
-                pool_element['append_to_right_rect'] = None
+                if available_for_right:
+                    x0, y0 = domino_rect.x + DOMINO_CELL_SIZE // 2, domino.rect.y - DOMINO_CELL_SIZE // 2
+                    arrow_coords = [(x0 + delta_x * x, y0 + delta_y * y) for x, y in self.TO_RIGHT_BUTTON_COORDS]
+                    pygame.draw.polygon(self.surface, self.ARROW_COLOR, arrow_coords)
+                    pool_element['append_to_right_rect'] = pygame.Rect(x0, y0, DOMINO_CELL_SIZE // 2, DOMINO_CELL_SIZE // 2)
+                else:
+                    pool_element['append_to_right_rect'] = None
 
     @property
     def pool_size(self):
@@ -512,16 +474,18 @@ class PlayerPool:
 
             if left_arrow_rect and left_arrow_rect.collidepoint(click_x, click_y):
                 self.chain.add_to_left(domino, self.color)
+                side = 'l'
                 break
 
             if right_arrow_rect and right_arrow_rect.collidepoint(click_x, click_y):
                 self.chain.add_to_right(domino, self.color)
+                side = 'r'
                 break
         else:
             return False
 
         self.pool.remove(pool_element)
-        return True
+        return [self.number, side, [pool_element['domino'].side1, pool_element['domino'].side2]]
 
 
 class ResultPane:
@@ -540,12 +504,12 @@ class ResultPane:
         if not self.game_result:
             return
 
-        if self.game_result == PLAYER1_WIN:
+        if self.game_result == WIN:
             msg = 'Вы победили!'
-        elif self.game_result == PLAYER2_WIN:
-            msg = 'Вы проиграли...'
-        else:
+        elif self.game_result == STANDOFF:
             msg = 'Ничья'
+        else:
+            msg = 'Вы проиграли...'
 
         x1, y1 = SCREEN_WIGHT // 2 - DOMINO_CELL_SIZE * 6, SCREEN_HEIGHT // 2 - DOMINO_CELL_SIZE * 2
         pygame.draw.rect(self.surface, THIRD_COLOR, (x1, y1, DOMINO_CELL_SIZE * 12, DOMINO_CELL_SIZE * 4))

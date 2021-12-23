@@ -1,7 +1,7 @@
 import pygame
 
 from parameters import BACKGROUND_COLOR, SCREEN_WIGHT, SCREEN_HEIGHT, DOMINO_CELL_SIZE, BORDER_COLOR, \
-    PLAYER1_WIN, PLAYER2_WIN, STANDOFF, THIRD_COLOR, TRANSPARENT_COLOR, DOMINO_INTERVAL
+    WIN, STANDOFF, THIRD_COLOR, TRANSPARENT_COLOR, DOMINO_INTERVAL, STORAGE_COORDS
 
 
 def get_player_pool_position(player_pool):
@@ -30,13 +30,11 @@ def check_available_for_domino(domino, chain):
     return available_for_left, available_for_right
 
 
-def check_end_game(player1_pool, player2_pool, storage):
-    if player1_pool.is_empty:
-        return PLAYER1_WIN
-    if player2_pool.is_empty:
-        return PLAYER2_WIN
+def check_end_game(player_pool, opponent_pool, storage):
+    if player_pool.is_empty:
+        return WIN
 
-    if storage.is_empty and not is_available_moves(player1_pool) and not is_available_moves(player2_pool):
+    if storage == 0 and not is_available_moves(player_pool) and opponent_pool:
         return STANDOFF
 
     return None
@@ -47,6 +45,13 @@ def is_available_moves(pool):
         available_for_left, available_for_right = check_available_for_domino(domino, pool.chain)
         if available_for_left or available_for_right:
             return True
+    return False
+
+
+def storage_click(pos):
+    domino_rect = pygame.Rect(STORAGE_COORDS[0], STORAGE_COORDS[1], 4 * DOMINO_CELL_SIZE, 2 * DOMINO_CELL_SIZE)
+    if domino_rect.collidepoint(pos[0], pos[1]):
+        return True
     return False
 
 
@@ -70,9 +75,24 @@ def draw_chain(surface, chain):
     surface.blit(chain.surface, (0, 0))
 
 
-def draw_storage_pane(surface, storage):
-    storage.create_surface()
-    surface.blit(storage.surface, (0, 0))
+def draw_storage_pane(surface, number):
+    storage_surface = pygame.Surface((SCREEN_WIGHT, SCREEN_HEIGHT))
+    storage_surface.set_colorkey(TRANSPARENT_COLOR)
+    storage_surface.fill(TRANSPARENT_COLOR)
+    if not number:
+        return
+
+    backside_surface = get_storage()
+    storage_surface.blit(backside_surface, STORAGE_COORDS)
+
+    font = pygame.font.Font(None, 80)
+    font_surface = font.render(str(number), True, BORDER_COLOR)
+    font_rect = font_surface.get_rect()
+
+    storage_surface.blit(font_surface,
+                         (SCREEN_WIGHT // 2 - font_rect.width, SCREEN_HEIGHT // 2 - 0.75 * font_rect.height))
+
+    surface.blit(storage_surface, (0, 0))
 
 
 def draw_restart_button(surface, button):
@@ -80,8 +100,8 @@ def draw_restart_button(surface, button):
     surface.blit(button.surface, (0, 0))
 
 
-def draw_player_pool(surface, player1_pool):
-    player1_pool.create_surface()
+def draw_player_pool(surface, player1_pool, chain, turn):
+    player1_pool.create_surface(chain, turn)
     x, y = get_player_pool_position(player1_pool)
     surface.blit(player1_pool.surface, (x, y))
 
