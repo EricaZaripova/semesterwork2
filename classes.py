@@ -41,7 +41,6 @@ class Game:
         self.p2_pool = 0
         self.result = None
 
-
     def both_in_game(self):
         return self.p1connect and self.p2connect
 

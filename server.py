@@ -53,15 +53,6 @@ def threaded_client(conn, p, game_id):
                 if not data:
                     break
                 else:
-                    if data == "restart":
-                        new_game(game_id)
-                        game.turn = 0
-                        game.last = [None, None, None]
-                        game.p1_available_moves = True
-                        game.p2_available_moves = True
-
-                        conn.send(game)
-
                     if data == 'game':
                         conn.send(game)
 
@@ -104,10 +95,8 @@ def threaded_client(conn, p, game_id):
 
                     elif data == 'opponent_domino':
                         if p == 0:
-                            # print('p2_pool ', game.p2_pool)
                             conn.send(game.p2_pool)
                         else:
-                            # print('p1_pool ', game.p1_pool)
                             conn.send(game.p1_pool)
 
                     elif data == 'number':

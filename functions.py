@@ -34,7 +34,7 @@ def check_end_game(player_pool, opponent_pool, storage):
     if player_pool.is_empty:
         return 'WIN'
 
-    if storage == 0:
+    if storage == 0 and not is_available_moves(player_pool) and opponent_pool:
         return 'STANDOFF'
 
     return None
