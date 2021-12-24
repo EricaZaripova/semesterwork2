@@ -33,16 +33,12 @@ class Game:
         self.turn = 0
         self.id = id
         self.last = [None, None, None]
-        self.p1connect = False
-        self.p2connect = False
+        self.ready = False
         self.p1_available_moves = True
         self.p2_available_moves = True
         self.p1_pool = 0
         self.p2_pool = 0
         self.result = None
-
-    def both_in_game(self):
-        return self.p1connect and self.p2connect
 
 
 class Domino:

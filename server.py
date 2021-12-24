@@ -3,32 +3,6 @@ from _thread import *
 from classes import Game, Chain, Storage
 
 
-def new_game(game_id):
-    chain = Chain()
-    storage = Storage()
-    first_domino = storage.take_domino()
-    chain.add_first_domino(first_domino)
-    player1_pool = []
-    player2_pool = []
-    for _ in range(7):
-        domino = storage.take_domino()
-        player1_pool.append([domino.side1, domino.side2])
-    for _ in range(7):
-        domino = storage.take_domino()
-        player2_pool.append([domino.side1, domino.side2])
-
-    if not game_id in games:
-        games[game_id] = {}
-        games[game_id]['game'] = Game(game_id)
-    games[game_id]['game'].p1_pool = 7
-    games[game_id]['game'].p2_pool = 7
-    games[game_id]['storage'] = storage
-    games[game_id]['chain'] = chain
-    games[game_id]['first_domino'] = [first_domino.side1, first_domino.side2]
-    games[game_id]['0'] = player1_pool
-    games[game_id]['1'] = player2_pool
-
-
 server = "192.168.0.107"
 port = 5555
 
@@ -126,7 +100,6 @@ def threaded_client(conn, p, game_id):
         print("Closing Game", game_id)
     except:
         pass
-    id_count -= 1
     conn.close()
 
 
@@ -138,11 +111,32 @@ while True:
     p = 0
     game_id = (id_count - 1)//2
     if id_count % 2 == 1:
-        new_game(game_id)
-        games[game_id]['game'].p1connect = True
+        chain = Chain()
+        storage = Storage()
+        first_domino = storage.take_domino()
+        chain.add_first_domino(first_domino)
+
+        player1_pool = []
+        player2_pool = []
+        for _ in range(7):
+            domino = storage.take_domino()
+            player1_pool.append([domino.side1, domino.side2])
+        for _ in range(7):
+            domino = storage.take_domino()
+            player2_pool.append([domino.side1, domino.side2])
+
+        games[game_id] = {}
+        games[game_id]['game'] = Game(game_id)
+        games[game_id]['game'].p1_pool = 7
+        games[game_id]['game'].p2_pool = 7
+        games[game_id]['storage'] = storage
+        games[game_id]['chain'] = chain
+        games[game_id]['first_domino'] = [first_domino.side1, first_domino.side2]
+        games[game_id]['0'] = player1_pool
+        games[game_id]['1'] = player2_pool
         print("Creating a new game...")
     else:
-        games[game_id]['game'].p2connect = True
+        games[game_id]['game'].ready = True
         p = 1
 
     start_new_thread(threaded_client, (conn, p, game_id))

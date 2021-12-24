@@ -67,7 +67,7 @@ def main():
             print(e)
             break
 
-        if not (game.both_in_game()):
+        if not game.ready:
             screen.blit(surface, (0, 0))
             draw_background(surface)
             draw_waiting_pane(surface, 'Ждём ещё одного игрока...')
