@@ -1,4 +1,5 @@
 SCREEN_WIGHT, SCREEN_HEIGHT = 1500, 750
+FPS = 25
 WINDOW_TITLE = "Domino"
 BACKGROUND_COLOR = [(207, 235, 199), (139, 159, 104)]
 
@@ -15,20 +16,4 @@ STORAGE_COORDS = (660, 330)
 
 THIRD_COLOR = (86, 113, 131)
 
-PLAYER1 = 'player1'
-PLAYER2 = 'player2'
-
-PLAYERS_COLORS = {
-    PLAYER1: (237, 145, 226),
-    PLAYER2: (250, 187, 136)
-}
-
-# Режимы игры
-PLAYER1_MOVE = 1       # Ход игрока
-PLAYER2_MOVE = 2       # Ход компьютера
-END_GAME = 3           # Игра окончена
-
-# Окончания игры
-PLAYER1_WIN = 1             # Игрок победил
-PLAYER2_WIN = 2             # Компьютер победил
-STANDOFF = 3                # Ничья
+PLAYERS_COLORS = [(237, 145, 226), (250, 187, 136)]

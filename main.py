@@ -1,90 +1,186 @@
 import pygame
-import sys
 
-from classes import Chain, Player1Pool, Storage, ResultPane, Player2Pool, RestartGameButton
+from classes import RestartGameButton, Network, Chain, PlayerPool, Domino, ResultPane
 from functions import draw_background, is_quit_event, is_available_moves, check_end_game, draw_chain, draw_storage_pane, \
-    draw_player1_pool, draw_game_result, draw_player2_pool, draw_restart_button
-from parameters import SCREEN_WIGHT, SCREEN_HEIGHT, WINDOW_TITLE, PLAYER1_MOVE, END_GAME
+    draw_restart_button, draw_player_pool, draw_waiting_pane, storage_click, draw_game_result, draw_opponent_pool
+from parameters import SCREEN_WIGHT, SCREEN_HEIGHT, WINDOW_TITLE, PLAYERS_COLORS, FPS
+
+
+def new_game(n, p_num):
+    chain = Chain()
+    result_pane = ResultPane(p_num)
+    button = RestartGameButton()
+    player_pool = PlayerPool(p_num, chain)
+    try:
+        pool = n.send(str(p_num))
+        for d in pool:
+            player_pool.add_domino(Domino(d[0], d[1]))
+    except Exception as e:
+        print("Couldn't get pool")
+        print(e)
+
+    return chain, result_pane, button, player_pool
+
+
+def redraw_screen(surface, n, game, chain, player_pool, button, result_pane):
+    global run
+    screen.blit(surface, (0, 0))
+    draw_background(surface)
+    draw_chain(surface, chain)
+    draw_storage_pane(surface, n.send("storage_len"))
+    draw_player_pool(surface, player_pool, chain, game.turn)
+    draw_opponent_pool(surface, n.send('opponent_domino'))
+    draw_restart_button(surface, button)
+    pygame.display.update()
+
+    if not (game.result is None):
+        result_pane.set_game_result(game.result)
+        draw_game_result(surface, result_pane)
+        pygame.display.update()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                run = False
+                break
 
 
 def main():
-    pygame.init()
-    screen = pygame.display.set_mode((SCREEN_WIGHT, SCREEN_HEIGHT))
-    pygame.display.set_caption(WINDOW_TITLE)
+    global run
     surface = pygame.Surface(screen.get_size()).convert()
-
     clock = pygame.time.Clock()
+    n = Network()
+    p_num = int(n.send('number'))
+    print("Вы игрок", p_num)
+    chain, result_pane, button, player_pool = new_game(n, p_num)
 
-    while True:
+    run = True
 
-        chain = Chain()
-        player1_pool = Player1Pool(chain)
-        player2_pool = Player2Pool(chain)
-        storage = Storage(player1_pool, chain)
-        button = RestartGameButton()
+    while run:
+        try:
+            game = n.send("game")
+        except Exception as e:
+            run = False
+            print("Couldn't get game")
+            print(e)
+            break
 
-        for _ in range(7):
-            player1_pool.add_domino(storage.take_domino())
-
-        for _ in range(7):
-            player2_pool.add_domino(storage.take_domino())
-
-        chain.add_first_domino(storage.take_domino())
-
-        result_pane = ResultPane()
-        next_mode = game_mode = PLAYER1_MOVE
-        resume_game = True
-
-        while resume_game:
-            events = pygame.event.get()
-            if is_quit_event(events):
-                pygame.quit()
-                exit()
-
-            if game_mode == PLAYER1_MOVE:
-                storage_action = player_pool_action = restart_action = False
-                for event in events:
-                    if event.type == pygame.MOUSEBUTTONDOWN:
-                        if event.button == pygame.BUTTON_LEFT:
-                            storage_action = storage.click(event.pos)
-                            player_pool_action = player1_pool.click(event.pos)
-                            restart_action = button.click(event.pos)
-
-                    if restart_action:
-                        resume_game = False
-                        break
-
-                    # Если игрок совершил действие (взял домино и/или положил его в цепочку), то передаем ход ИИ
-                    if player_pool_action or (storage_action and not is_available_moves(player1_pool)):
-                        game_result = check_end_game(player1_pool, player2_pool, storage)
-                        if game_result:
-                            result_pane.set_game_result(game_result)
-                            next_mode = END_GAME
-
-            if game_mode == END_GAME:
-                for event in events:
-                    if event.type == pygame.KEYDOWN:
-                        if event.key == pygame.K_ESCAPE:
-                            pygame.quit()
-                            exit()
-                        if event.key == pygame.K_KP_ENTER or event.key == 13:
-                            resume_game = False
-                            break
-
+        if not (game.both_in_game()):
             screen.blit(surface, (0, 0))
             draw_background(surface)
-            draw_storage_pane(surface, storage)
-            draw_chain(surface, chain)
-            draw_player1_pool(surface, player1_pool)
-            draw_player2_pool(surface, player2_pool)
-            draw_restart_button(surface, button)
-            draw_game_result(surface, result_pane)
+            draw_waiting_pane(surface, 'Ждём ещё одного игрока...')
             pygame.display.update()
+            clock.tick(60)
 
-            clock.tick(25)
+            events = pygame.event.get()
+            if is_quit_event(events):
+                run = False
+                pygame.quit()
+                exit()
+        else:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    run = False
+                    pygame.quit()
+                    exit()
 
-            game_mode = next_mode
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == pygame.BUTTON_LEFT:
+                        if button.click(event.pos):
+                            run = False
+                            break
+
+            if not chain.chain_elements:
+                first_domino = n.send("first_domino")
+                chain.add_first_domino(Domino(first_domino[0], first_domino[1]))
+
+            if game.last[2] and game.last[0] != p_num:
+                if game.last[1] == 'r':
+                    chain.add_to_right(Domino(game.last[2][0], game.last[2][1]), PLAYERS_COLORS[game.last[0]])
+                    res = n.send("change_last")
+                else:
+                    chain.add_to_left(Domino(game.last[2][0], game.last[2][1]), PLAYERS_COLORS[game.last[0]])
+                    res = n.send("change_last")
+
+            try:
+                redraw_screen(surface, n, game, chain, player_pool, button, result_pane)
+            except:
+                run = False
+                break
+            clock.tick(FPS)
+            while game.turn == p_num and run:
+                storage_action = player_pool_action = restart_action = False
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        run = False
+                        pygame.quit()
+                        exit()
+
+                    if event.type == pygame.MOUSEBUTTONDOWN:
+                        if event.button == pygame.BUTTON_LEFT:
+                            storage_action = storage_click(event.pos)
+                            player_pool_action = player_pool.click(event.pos)
+                            restart_action = button.click(event.pos)
+
+                    if storage_action and n.send('storage_len') > 0:
+                        domino = n.send("storage")
+                        player_pool.add_domino(Domino(domino[0], domino[1]))
+
+                    if player_pool_action:
+                        game.turn = (game.turn - 1) * (-1)
+                        res = n.send(player_pool_action)
+                        res = n.send('change_turn')
+                        break
+
+                    if restart_action:
+                        game.turn = (game.turn - 1) * (-1)
+                        run = False
+                        break
+
+                if player_pool_action or (storage_action and not is_available_moves(player_pool)):
+                    game_result = check_end_game(player_pool, n.send('check_opponent'), n.send("storage_len"))
+                    if game_result:
+                        res = n.send(game_result)
+                        result_pane.set_game_result(res)
+
+                try:
+                    redraw_screen(surface, n, game, chain, player_pool, button, result_pane)
+                except:
+                    run = False
+                    break
+                clock.tick(FPS)
+
+
+def menu_screen():
+    run = True
+    surface = pygame.Surface(screen.get_size()).convert()
+    clock = pygame.time.Clock()
+
+    while run:
+        screen.blit(surface, (0, 0))
+        draw_background(surface)
+        draw_waiting_pane(surface, 'Нажмите в любом месте, чтобы начать игру')
+        pygame.display.update()
+        clock.tick(FPS)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                run = False
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                run = False
+
+    main()
 
 
 if __name__ == '__main__':
-    main()
+    pygame.init()
+    screen = pygame.display.set_mode((SCREEN_WIGHT, SCREEN_HEIGHT))
+    pygame.display.set_caption(WINDOW_TITLE)
+
+    run = True
+
+    while True:
+        menu_screen()
