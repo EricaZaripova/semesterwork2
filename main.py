@@ -3,7 +3,8 @@ import pygame
 from classes import RestartGameButton, Network, Chain, PlayerPool, Domino, ResultPane
 from functions import draw_background, is_quit_event, is_available_moves, check_end_game, draw_chain, draw_storage_pane, \
     draw_restart_button, draw_player_pool, draw_waiting_pane, storage_click, draw_game_result, draw_opponent_pool
-from parameters import SCREEN_WIGHT, SCREEN_HEIGHT, WINDOW_TITLE, PLAYERS_COLORS
+from parameters import SCREEN_WIGHT, SCREEN_HEIGHT, WINDOW_TITLE, PLAYERS_COLORS, BACKGROUND_COLOR, FPS, \
+    DOMINO_CELL_SIZE, THIRD_COLOR, BORDER_COLOR
 
 
 def new_game(n, p_num):
@@ -49,14 +50,12 @@ def redraw_screen(surface, n, game, chain, player_pool, button, result_pane):
                 break
 
 
-
 def main():
     surface = pygame.Surface(screen.get_size()).convert()
     clock = pygame.time.Clock()
-
     n = Network()
     p_num = int(n.send('number'))
-    print("You are player", p_num)
+    print("Вы игрок", p_num)
     chain, result_pane, button, player_pool = new_game(n, p_num)
 
     run = True
@@ -73,7 +72,7 @@ def main():
         if not (game.both_in_game()):
             screen.blit(surface, (0, 0))
             draw_background(surface)
-            draw_waiting_pane(surface)
+            draw_waiting_pane(surface, 'Ждём ещё одного игрока...')
             pygame.display.update()
             clock.tick(60)
 
@@ -144,8 +143,34 @@ def main():
                         # res = n.send("restart")
 
                 # print('before redraw')
-                redraw_screen(surface, n, game, chain, player_pool, button, result_pane)
-                clock.tick(25)
+                try:
+                    redraw_screen(surface, n, game, chain, player_pool, button, result_pane)
+                except:
+                    run = False
+                    break
+                clock.tick(FPS)
+
+
+def menu_screen():
+    run = True
+    surface = pygame.Surface(screen.get_size()).convert()
+    clock = pygame.time.Clock()
+
+    while run:
+        screen.blit(surface, (0, 0))
+        draw_background(surface)
+        draw_waiting_pane(surface, 'Нажмите в любом месте, чтобы начать игру')
+        pygame.display.update()
+        clock.tick(FPS)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                run = False
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                run = False
+
+    main()
 
 
 if __name__ == '__main__':
@@ -153,4 +178,5 @@ if __name__ == '__main__':
     screen = pygame.display.set_mode((SCREEN_WIGHT, SCREEN_HEIGHT))
     pygame.display.set_caption(WINDOW_TITLE)
 
-    main()
+    while True:
+        menu_screen()

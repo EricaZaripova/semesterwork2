@@ -3,8 +3,7 @@ from _thread import *
 from classes import Game, Chain, Storage
 
 
-def restart(game_id):
-    print('restart')
+def new_game(game_id):
     chain = Chain()
     storage = Storage()
     first_domino = storage.take_domino()
@@ -30,18 +29,11 @@ def restart(game_id):
     games[game_id]['1'] = player2_pool
 
 
-
 server = "192.168.0.107"
 port = 5555
 
 s = Listener((server, port))
 
-# try:
-#     s.bind((server, port))
-# except socket.error as e:
-#     str(e)
-
-# s.listen(2)
 print("Waiting for a connection, Server Started")
 
 connected = set()
@@ -62,7 +54,7 @@ def threaded_client(conn, p, game_id):
                     break
                 else:
                     if data == "restart":
-                        restart(game_id)
+                        new_game(game_id)
                         game.turn = 0
                         game.last = [None, None, None]
                         game.p1_available_moves = True
@@ -157,7 +149,7 @@ while True:
     p = 0
     game_id = (id_count - 1)//2
     if id_count % 2 == 1:
-        restart(game_id)
+        new_game(game_id)
         games[game_id]['game'].p1connect = True
         print("Creating a new game...")
     else:

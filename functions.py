@@ -61,12 +61,15 @@ def draw_background(surface):
     pygame.draw.rect(surface, BACKGROUND_COLOR[1], (0, 630, SCREEN_WIGHT, SCREEN_HEIGHT))
 
 
-def draw_waiting_pane(surface):
-    x1, y1 = SCREEN_WIGHT // 2 - DOMINO_CELL_SIZE * 6, SCREEN_HEIGHT // 2 - DOMINO_CELL_SIZE * 2
-    pygame.draw.rect(surface, THIRD_COLOR, (x1, y1, DOMINO_CELL_SIZE * 12, DOMINO_CELL_SIZE * 4))
+def draw_waiting_pane(surface, msg):
+    font_result = pygame.font.Font(None, 36)
+    text = font_result.render(msg, True, BORDER_COLOR)
 
-    font_result = pygame.font.Font(None, 42)
-    text = font_result.render('Waiting for Opponent...', True, BORDER_COLOR)
+    x1, y1 = SCREEN_WIGHT // 2 - text.get_width() // 2 - DOMINO_CELL_SIZE * 2, \
+             SCREEN_HEIGHT // 2 - text.get_height() // 2 - DOMINO_CELL_SIZE
+    pygame.draw.rect(surface, THIRD_COLOR, (x1, y1, text.get_width() + DOMINO_CELL_SIZE * 4,
+                                            text.get_height() + DOMINO_CELL_SIZE * 2))
+
     surface.blit(text, (SCREEN_WIGHT / 2 - text.get_width() / 2, SCREEN_HEIGHT / 2 - text.get_height() / 2))
 
 
