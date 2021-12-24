@@ -1,9 +1,35 @@
-import socket
 from multiprocessing.connection import Listener
 from _thread import *
-import pickle
-from classes import Game, Chain, Storage, PlayerPool, ResultPane
-from functions import check_end_game
+from classes import Game, Chain, Storage
+
+
+def restart(game_id):
+    print('restart')
+    chain = Chain()
+    storage = Storage()
+    first_domino = storage.take_domino()
+    chain.add_first_domino(first_domino)
+    player1_pool = []
+    player2_pool = []
+    for _ in range(7):
+        domino = storage.take_domino()
+        player1_pool.append([domino.side1, domino.side2])
+    for _ in range(7):
+        domino = storage.take_domino()
+        player2_pool.append([domino.side1, domino.side2])
+
+    if not game_id in games:
+        games[game_id] = {}
+        games[game_id]['game'] = Game(game_id)
+    games[game_id]['game'].p1_pool = 7
+    games[game_id]['game'].p2_pool = 7
+    games[game_id]['storage'] = storage
+    games[game_id]['chain'] = chain
+    games[game_id]['first_domino'] = [first_domino.side1, first_domino.side2]
+    games[game_id]['0'] = player1_pool
+    games[game_id]['1'] = player2_pool
+
+
 
 server = "192.168.0.107"
 port = 5555
@@ -25,8 +51,6 @@ id_count = 0
 
 def threaded_client(conn, p, game_id):
     global id_count
-    conn.send(str.encode(str(p)))
-
     while True:
         try:
             data = conn.recv()
@@ -38,29 +62,13 @@ def threaded_client(conn, p, game_id):
                     break
                 else:
                     if data == "restart":
-                        chain = Chain()
-                        storage = Storage()
-                        first_domino = storage.take_domino()
-                        chain.add_first_domino(first_domino)
-                        result_pane = ResultPane()
-                        player1_pool = []
-                        player2_pool = []
-                        for _ in range(7):
-                            domino = storage.take_domino()
-                            player1_pool.append([domino.side1, domino.side2])
-                        for _ in range(7):
-                            domino = storage.take_domino()
-                            player2_pool.append([domino.side1, domino.side2])
-                        games[game_id] = {}
-                        games[game_id]['game'] = Game(game_id)
-                        games[game_id]['game'].p1_pool = 7
-                        games[game_id]['game'].p1_pool = 7
-                        games[game_id]['storage'] = storage
-                        games[game_id]['chain'] = chain
-                        games[game_id]['result_pane'] = result_pane
-                        games[game_id]['first_domino'] = [first_domino.side1, first_domino.side2]
-                        games[game_id]['0'] = player1_pool
-                        games[game_id]['1'] = player2_pool
+                        restart(game_id)
+                        game.turn = 0
+                        game.last = [None, None, None]
+                        game.p1_available_moves = True
+                        game.p2_available_moves = True
+
+                        conn.send(game)
 
                     if data == 'game':
                         conn.send(game)
@@ -77,14 +85,24 @@ def threaded_client(conn, p, game_id):
                     elif data == 'first_domino':
                         conn.send(games[game_id]['first_domino'])
 
-                    elif data == 'result_pane':
-                        conn.send(games[game_id]['result_pane'])
-
                     elif data == 'change_turn':
                         game.turn = (game.turn - 1) * (-1)
+                        conn.send('1')
+
+                    elif data == 'change_last':
+                        game.last = [None, None, None]
+                        conn.send('1')
 
                     elif data == "storage_len":
                         conn.send(len(games[game_id]['storage'].domino_list))
+
+                    elif data == 'WIN':
+                        game.result = p
+                        conn.send(p)
+
+                    elif data == 'STANDOFF':
+                        game.result = 2
+                        conn.send(2)
 
                     elif data == 'check_opponent':
                         if game.turn == 0:
@@ -93,10 +111,15 @@ def threaded_client(conn, p, game_id):
                             conn.send(game.p1_available_moves)
 
                     elif data == 'opponent_domino':
-                        if game.turn == 0:
+                        if p == 0:
+                            # print('p2_pool ', game.p2_pool)
                             conn.send(game.p2_pool)
                         else:
+                            # print('p1_pool ', game.p1_pool)
                             conn.send(game.p1_pool)
+
+                    elif data == 'number':
+                        conn.send(p)
 
                     elif data == '0':
                         conn.send(games[game_id]['0'])
@@ -105,6 +128,10 @@ def threaded_client(conn, p, game_id):
                         conn.send(games[game_id]['1'])
 
                     else:
+                        if game.turn == 0:
+                            game.p1_pool -= 1
+                        else:
+                            game.p2_pool -= 1
                         game.last = data
                         conn.send('1')
             else:
@@ -130,29 +157,7 @@ while True:
     p = 0
     game_id = (id_count - 1)//2
     if id_count % 2 == 1:
-        chain = Chain()
-        storage = Storage()
-        first_domino = storage.take_domino()
-        chain.add_first_domino(first_domino)
-        result_pane = ResultPane()
-        player1_pool = []
-        player2_pool = []
-        for _ in range(7):
-            domino = storage.take_domino()
-            player1_pool.append([domino.side1, domino.side2])
-        for _ in range(7):
-            domino = storage.take_domino()
-            player2_pool.append([domino.side1, domino.side2])
-        games[game_id] = {}
-        games[game_id]['game'] = Game(game_id)
-        games[game_id]['game'].p1_pool = 7
-        games[game_id]['game'].p1_pool = 7
-        games[game_id]['storage'] = storage
-        games[game_id]['chain'] = chain
-        games[game_id]['result_pane'] = result_pane
-        games[game_id]['first_domino'] = [first_domino.side1, first_domino.side2]
-        games[game_id]['0'] = player1_pool
-        games[game_id]['1'] = player2_pool
+        restart(game_id)
         games[game_id]['game'].p1connect = True
         print("Creating a new game...")
     else:

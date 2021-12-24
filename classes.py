@@ -1,15 +1,14 @@
 import socket
 from multiprocessing.connection import Client
-import pickle
 import random
 from collections import namedtuple
 
 import pygame
 
-from functions import get_player_pool_position, check_available_for_domino, is_available_moves, get_storage
+from functions import get_player_pool_position, check_available_for_domino
 from parameters import DOMINO_CELL_SIZE, PLAYERS_COLORS, SCREEN_HEIGHT, \
-    SCREEN_WIGHT, DOMINO_INTERVAL, BORDER_COLOR, STORAGE_COORDS, TRANSPARENT_COLOR, \
-    DOMINO_COLOR, DOMINO_DOT_COLOR, THIRD_COLOR, WIN, STANDOFF
+    SCREEN_WIGHT, DOMINO_INTERVAL, BORDER_COLOR, TRANSPARENT_COLOR, \
+    DOMINO_COLOR, DOMINO_DOT_COLOR, THIRD_COLOR
 
 ChainElement = namedtuple('ChainElement', ['rect', 'domino', 'label'])
 
@@ -20,10 +19,6 @@ class Network:
         self.port = 5555
         self.client = Client((self.server, self.port))
         self.addr = (self.server, self.port)
-        self.p = self.client.recv()
-
-    def get_p(self):
-        return self.p
 
     def send(self, data):
         try:
@@ -44,6 +39,7 @@ class Game:
         self.p2_available_moves = True
         self.p1_pool = 0
         self.p2_pool = 0
+        self.result = None
 
 
     def both_in_game(self):
@@ -199,7 +195,7 @@ class Chain:
         if domino.is_double:
             domino.rotate(Domino.UP_ORIENTATION)
         else:
-            domino.rotate(random.choice(Domino.HORIZONTAL_ORIENTATION))
+            domino.rotate(Domino.RIGHT_ORIENTATION)
 
         domino_rect = domino.rect
         domino_rect[0] = 0
@@ -489,11 +485,12 @@ class PlayerPool:
 
 
 class ResultPane:
-    def __init__(self):
+    def __init__(self, p):
         self.surface = pygame.Surface((SCREEN_WIGHT, SCREEN_HEIGHT))
         self.surface.set_colorkey(TRANSPARENT_COLOR)
         self.game_result = None
         self.create_surface()
+        self.p = p
 
     def set_game_result(self, game_result):
         self.game_result = game_result
@@ -501,12 +498,12 @@ class ResultPane:
 
     def create_surface(self):
         self.surface.fill(TRANSPARENT_COLOR)
-        if not self.game_result:
+        if self.game_result is None:
             return
 
-        if self.game_result == WIN:
+        if self.game_result == self.p:
             msg = 'Вы победили!'
-        elif self.game_result == STANDOFF:
+        elif self.game_result == 2:
             msg = 'Ничья'
         else:
             msg = 'Вы проиграли...'
@@ -514,11 +511,18 @@ class ResultPane:
         x1, y1 = SCREEN_WIGHT // 2 - DOMINO_CELL_SIZE * 6, SCREEN_HEIGHT // 2 - DOMINO_CELL_SIZE * 2
         pygame.draw.rect(self.surface, THIRD_COLOR, (x1, y1, DOMINO_CELL_SIZE * 12, DOMINO_CELL_SIZE * 4))
 
-        font_result = pygame.font.Font(None, 36)
+        font_result = pygame.font.Font(None, 48)
+        font_resume = pygame.font.Font(None, 20)
         result_surface = font_result.render(msg, True, BORDER_COLOR)
+        resume_surface = font_resume.render('Нажмите в любом месте, чтобы играть еще раз', True, BORDER_COLOR)
 
         result_rect = result_surface.get_rect()
         self.surface.blit(
             result_surface,
-            (SCREEN_WIGHT // 2 - result_rect.width // 2, SCREEN_HEIGHT // 2 - result_rect.height // 2)
+            (SCREEN_WIGHT // 2 - result_rect.width // 2, SCREEN_HEIGHT // 2 - result_rect.height // 2 - 10)
+        )
+        resume_rect = resume_surface.get_rect()
+        self.surface.blit(
+            resume_surface,
+            (SCREEN_WIGHT // 2 - resume_rect.width // 2, SCREEN_HEIGHT // 2 + result_rect.height - 3)
         )

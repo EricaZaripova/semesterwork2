@@ -1,7 +1,7 @@
 import pygame
 
 from parameters import BACKGROUND_COLOR, SCREEN_WIGHT, SCREEN_HEIGHT, DOMINO_CELL_SIZE, BORDER_COLOR, \
-    WIN, STANDOFF, THIRD_COLOR, TRANSPARENT_COLOR, DOMINO_INTERVAL, STORAGE_COORDS
+    THIRD_COLOR, TRANSPARENT_COLOR, DOMINO_INTERVAL, STORAGE_COORDS
 
 
 def get_player_pool_position(player_pool):
@@ -32,10 +32,10 @@ def check_available_for_domino(domino, chain):
 
 def check_end_game(player_pool, opponent_pool, storage):
     if player_pool.is_empty:
-        return WIN
+        return 'WIN'
 
-    if storage == 0 and not is_available_moves(player_pool) and opponent_pool:
-        return STANDOFF
+    if storage == 0:
+        return 'STANDOFF'
 
     return None
 
@@ -121,8 +121,8 @@ def draw_opponent_pool(surface, opponent_pool):
     surface.blit(surface_pool, (0, 0))
 
 
-def draw_game_result(surface, game_result):
-    surface.blit(game_result.surface, (0, 0))
+def draw_game_result(surface, result_pane):
+    surface.blit(result_pane.surface, (0, 0))
 
 
 def is_quit_event(events):
